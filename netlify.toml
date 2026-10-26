@@ -1,0 +1,26 @@
+# Netlify: the React app is served as static files and the Express API runs
+# as a single Netlify Function (netlify/functions/api.ts).
+
+[build]
+  command = "npm run build"
+  publish = "client/dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # Packages with native/wasm parts are shipped as-is instead of bundled.
+  external_node_modules = ["@prisma/client", "@prisma/adapter-libsql", "@libsql/client", "libsql"]
+  included_files = ["server/prisma/migrations/**", "server/src/generated/**"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

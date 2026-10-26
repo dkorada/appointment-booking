@@ -1,0 +1,81 @@
+// Glow Studio data model. See docs/data-model.md for the reasoning.
+// All DateTime values are stored in UTC.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum EmailType {
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  durationMin Int
+  priceCents  Int
+  category    String
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  bookings    Booking[]
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  reference    String        @unique
+  serviceId    String
+  service      Service       @relation(fields: [serviceId], references: [id])
+  startAt      DateTime
+  endAt        DateTime
+  customerName String
+  phone        String
+  email        String
+  notes        String?
+  status       BookingStatus @default(CONFIRMED)
+  cancelledAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  blocks       BookedBlock[]
+  emails       OutboxEmail[]
+
+  @@index([startAt])
+  @@index([status, startAt])
+}
+
+// One row per 15-minute block held by a confirmed booking. The unique index on
+// startAt makes overlapping bookings impossible, even under concurrent requests.
+model BookedBlock {
+  id        String   @id @default(cuid())
+  startAt   DateTime @unique
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+// Mock email outbox: notifications are logged to the console and stored here.
+model OutboxEmail {
+  id        String    @id @default(cuid())
+  bookingId String?
+  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  type      EmailType
+  to        String
+  subject   String
+  bodyText  String
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}
